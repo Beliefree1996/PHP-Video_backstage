@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>文件上传</title>
+	<link rel="stylesheet" href="/static/layui/css/layui.css">
+	<script src="/static/layui/layui.js"></script>
+	<script type="text/javascript" src="/static/lib/cryptojs/crypto-js.js"></script>
+	<script type="text/javascript" src="/static/lib/cryptojs/hmac.js"></script>
+	<script type="text/javascript" src="/static/lib/cryptojs/sha1.js"></script>
+	<script type="text/javascript" src="/static/lib/base64.js"></script>
+
+	<script type="text/javascript" src="/static/lib/plupload/js/plupload.full.min.js"></script>
+	<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+</head>
+<body>
+
+<h2>文件上传</h2>
+<p>
+	上传视频：
+	<span>选择视频文件</span><div id="upvp"></div>
+<button name="submit" id="upvideo">选择文件</button>
+</p>
+
+
+
+<script>
+    var policyText = {
+        "expiration": "3030-01-01T12:00:00.000Z", //设置该Policy的失效时间，超过这个失效时间之后，就没有办法通过这个policy上传文件了
+        "conditions": [
+            ["content-length-range", 0, 5368709120] // 设置上传文件的大小限制
+        ]
+    };
+    var accessid= 'D4T6zPxc2Jm2ZSLw';
+    var accesskey= 'LNY5L6owScHQoSmrLyXDaYDZVPD3f2';
+    var host = 'https://mkangou.oss-cn-shanghai.aliyuncs.com';
+
+    var policyBase64 = Base64.encode(JSON.stringify(policyText));
+    var message = policyBase64;
+    var signature = CryptoJS.HmacSHA1(message, accesskey).toString(CryptoJS.enc.Base64);
+
+    var uploader;
+
+    //OSS存放目录
+    var playurl = "https://play.haishunsh.com/";
+
+    var oss = "zvideo/"
+
+    function uploadvideo(vid,elem,inid,url,folder) {
+        var timestamp = Date.now();
+        var x = 98765;
+        var y = 45678;
+        var randint;
+        var yfiles;
+        var zmfile;
+        var src;
+
+        uploader = new plupload.Uploader({
+            runtimes : 'html5,flash,silverlight,html4',
+            browse_button : 'upvideo',
+            flash_swf_url : '/static/lib/plupload/js/Moxie.swf',
+            silverlight_xap_url : '/static/lib/plupload/js/Moxie.xap',
+
+            url : host,
+
+            filters: {
+                mime_types : [ //只允许上传图片和zip文件
+                    { title : "mp4 files", extensions : "mp4" },
+                    { title : "mov files", extensions : "mov" },
+                ],
+                max_file_size : '5G', //最大只能上传400kb的文件
+                prevent_duplicates : true //不允许选取重复文件
+            },
+
+            multipart_params: {
+                'Filename': '${filename}',
+                'policy': policyBase64,
+                'OSSAccessKeyId': accessid,
+                'success_action_status' : '200', //让服务端返回200,不然，默认会返回204
+                'signature': signature,
+            },
+
+            init: {
+
+                FilesAdded: function(up, files) {
+					yfiles = oss+files[0].id+".mp4";
+					zmfile = oss+files[0].id+"1.mp4";
+					yssrc = playurl+yfiles;
+					zmsrc = playurl+zmfile;
+					uploader.settings.multipart_params.key = yfiles;
+
+                    uploader.start();
+                },
+
+                UploadProgress: function(up, file) {
+					$("#upvp").html(file.percent+'%')
+                },
+
+                FileUploaded: function(up, file, info) {
+                    //alert(info.status)
+                    if (info.status >= 200 || info.status < 200) {
+							// $(inid).val(src);
+                        console.log(yssrc);
+                        console.log(zmsrc);
+                        console.log(up);
+                        console.log(file);
+                        console.log(info);
+						$.post("index/Index/addVideo", {input_object:yfiles,output_object:zmfile,name:file.name, type:file.type}, function(data){
+							console.log(data);
+						}, "json");
+                    }else{
+                        // return layer.msg(info.response);
+                    }
+                },
+
+
+				Error: function(up, err) {
+                    console.log(err.response);
+                }
+            }
+        });
+
+        uploader.init();
+
+
+    }
+	uploadvideo("","upvideo","#videourl",'','');
+</script>
+
+
+</body>
+</html>
